@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# LaTeX build artifacts (keep source + final PDF only)
+paper/*.aux
+paper/*.log
+paper/*.bbl
+paper/*.blg
+paper/*.out
+paper/*.toc
+paper/*.synctex.gz
+paper/*.fls
+paper/*.fdb_latexmk
+
+# Internal QA / check images
+paper/*_check.png
+paper/metrics_page.png
+
+# Backups and stale copies
+*.bak
+*.bak_*
+*.old
+
+# Internal working docs / recovery logs (contain local paths + credentials)
+STATE.md
+*.docx
+
+# Heavy upstream data / binaries (not part of the released artifact)
+reference/
+tools/
+workdir/

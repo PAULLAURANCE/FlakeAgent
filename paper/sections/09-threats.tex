@@ -1,0 +1,32 @@
+\section{Threats to Validity}
+\label{sec:threats}
+
+\paragraph{Internal.} The main FlakeAgent runs are single-seeded; agent
+decisions are stochastic, so single-run rates carry sampling noise, which we
+mitigate with a 3-seed variance subset (Section~\ref{sec:setup}) and fixed
+temperature and prompts. The executor is large, hand-built infrastructure;
+bugs in strategy implementations or log parsing could bias results, which we
+mitigate by grounding strategies against the dataset's own mechanisms (T2
+reuses iDFlakies, T12 reuses NonDex) and releasing all logs.
+
+\paragraph{External.} The benchmark is drawn from ReproFlake, which is
+Java/Maven-only and skewed toward implementation-dependent tests in its full
+distribution; our subset deliberately balances categories, so aggregate
+numbers are not a statement about ReproFlake's natural distribution. All 116
+tests are within one dataset, so results may not transfer to other ecosystems
+or proprietary code. All LLM calls use vendor-hosted 2026 models; endpoint
+behavior may drift after our runs, which we pin in the artifact.
+
+\paragraph{Construct.} ``Reproduction'' is operationalized as a target-test
+failure within budget, judged by the observation probe; a probe parsing bug
+could miscount. A subtler threat: fault-injection strategies can make a test
+fail for reasons \emph{orthogonal} to its actual flakiness — e.g., NonDex
+(T12) can surface a reflection-linkage error in an order-dependent test, and
+an aggressive sleep (T6) or heap cap (T9) can trip an unrelated timeout. Such
+a ``failure'' counts as a reproduction even though it is not \emph{the} flaky
+failure; we therefore flag, in the artifact, every reproduction whose
+diagnosed category disagrees with its ground-truth label. Diagnosis grounding
+is measured against the developer fix diff, which may inflate or deflate
+precision, bounded by our additional manual assessment. Where we compare
+against baselines we use McNemar's test; model comparison is descriptive
+(one run per model), and costs are at provider list prices.

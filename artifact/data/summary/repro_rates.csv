@@ -1,0 +1,16 @@
+method,od_n,td_n,nio_n,id_n,od_repro,td_repro,nio_repro,id_repro,overall_n,overall_repro,overall_rate
+agent_astra,13,16,11,10,0,1,4,0,50,5,10.0
+agent_ds-flash,20,31,25,16,4,4,25,11,92,44,47.8
+agent_ds-flash_noreflection,20,31,25,16,1,3,10,1,92,15,16.3
+agent_ds-flash_nosource,13,16,11,10,0,1,3,0,50,4,8.0
+agent_ds-flash_space4,13,16,11,10,0,2,4,0,50,6,12.0
+agent_ds-flash_warm,11,10,4,0,11,10,4,0,25,25,100.0
+agent_ds-pro,13,16,11,10,1,1,4,0,50,6,12.0
+agent_gemini38,13,16,11,10,1,0,4,0,50,5,10.0
+agent_grok47,13,16,11,10,0,2,4,0,50,6,12.0
+agent_sol,13,16,11,10,1,1,4,0,50,6,12.0
+naive,20,31,25,16,0,5,0,0,92,5,5.4
+random,20,31,25,16,3,1,21,0,92,25,27.2
+shuffle,20,31,25,16,1,0,0,0,92,1,1.1
+singleshot,20,31,25,16,1,3,6,0,92,10,10.9
+sleepscan,20,31,25,16,0,0,0,0,92,0,0.0

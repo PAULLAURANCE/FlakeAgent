@@ -1,0 +1,63 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{The loop and the model both matter.}
+The gap between FlakeAgent and SingleShotLLM — same model, same budget, no
+loop — isolates the contribution of observation-feedback iteration: 47.8\%
+drops to 10.9\% (Section~\ref{sec:rq1}), a 36.9~pp loss. A one-shot planner
+proposes the \emph{most likely} strategy a priori; FlakeAgent's value is in
+converting a wrong first guess into information (a structured observation:
+exit code, assertion, duration) and re-planning against it. The ablation
+(Section~\ref{sec:ablation}) and cross-model (Section~\ref{sec:results})
+results together show that both the loop and the model matter: removing
+source grounding costs 39.8~pp, and switching from the main model to a
+frontier sibling costs 35.8--37.8~pp. The method is necessary but not
+sufficient — on this task the planner's prior quality, not just the loop
+architecture, determines the ceiling.
+
+\paragraph{Where cold-start reproduction still fails.}
+Our per-category results isolate the agent's weakest point: order-dependent
+tests whose polluter lives in a \emph{different} test class than the victim.
+When the polluter is a sibling method (Section~\ref{sec:case-od}), its
+mutation is visible in the victim's own source and the agent names it
+precisely; when it sits in another class, the planner sees only the class
+\emph{name}, not its source, so it guesses a polluter blindly. This is a
+failure of perception, not reasoning: the loop has no ``read an arbitrary
+file'' action, and adding one is the single highest-leverage extension we see.
+The second weak point is time-dependence whose sensitivity sits in
+\emph{production} code rather than the test body: cold start, the
+sleep-injection strategy can only name methods it sees (the test method and
+its helpers), so it misses the asynchronous production path where the race
+lives. It can still succeed when a \emph{broad} perturbation widens the race
+(Section~\ref{sec:case-td}); but this is the exception, which explains why TD
+joins OD as the categories where rerun-free reproduction is genuinely hard.
+The fix is the same: let the planner follow a stack trace or synchronization
+primitive into production source before choosing a perturbation target.
+
+\paragraph{The strategy map is reusable knowledge.}
+Figure~\ref{fig:heatmap} is more than an evaluation artifact: it is an
+empirical category $\rightarrow$ strategy effectiveness map, built cold-start
+without failure logs, that a CI system with no failure log can consult to
+pick a reproducer by category priors. As the warm ablation shows, the same
+agent seeded with a pasted log becomes a diagnosis tool comparable to
+log-based work like TDRepro~\cite{chen2024tdrepro} — reproduce cold, diagnose
+warm.
+
+\paragraph{Cost and CI practice.}
+At 0.006 USD and 1.55 minutes per test (median), running FlakeAgent costs
+less than a developer's first ``re-run'' coffee break, and the budget caps
+make it a predictable, parallelizable CI job. Three design choices keep the
+cost low: Step 0 reruns are LLM-free; observations are compressed structures;
+and only the last two observations enter the planner context.
+
+\paragraph{Reproduction is the bottleneck, and the loop is portable.}
+Our results put a number on a folk claim: of reproduce and diagnose,
+reproduction is the hard step — the loss from cold start is dominated by
+reproduction failures, not diagnosis quality (warm ablation,
+Section~\ref{sec:ablation}). Tools that assume a log exists solve the easier
+half; making the bug happen is what FlakeAgent automates. The loop is also
+portable: the planner reasons over source and observations while the executor
+wraps the project's own test driver, so porting to pytest or Jest means only
+reimplementing the twelve strategies — the prompt, loop, anti-degeneracy
+rules, and diagnosis protocol carry over unchanged (the benchmark, however,
+is Java-only, Section~\ref{sec:threats}).

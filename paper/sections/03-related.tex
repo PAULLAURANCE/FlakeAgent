@@ -1,0 +1,61 @@
+\section{Related Work}
+
+\subsection{Flaky-test detection and classification}
+
+A large line of work detects or predicts flakiness from execution
+history~\cite{pinto2020understanding,alshammari2021flakeflagger,
+lam2020idflakies}, vocabulary and static features~\cite{pinto2020understanding,
+haben2023flakiness}, or dynamic behavioral features~\cite{fatima2022flakify};
+more recently, large language models classify flaky
+tests~\cite{kim2024large,yang2024predicting,fatima2023flakycat}. These tools
+answer \emph{whether} a test is flaky, but do not reproduce the failure or
+explain its mechanism. FlakeAgent is complementary: it takes a test known (or
+suspected) to be flaky and produces the failing execution plus a grounded
+diagnosis, derived from reproduced failures rather than static signals.
+
+\subsection{Flaky-test reproduction}
+
+iDFlakies~\cite{lam2019idflakies} pioneered automated reproduction of
+order-dependent failures by executing whole test suites in randomized orders
+and minimizing polluter--victim pairs; its companion plugin infrastructure
+(testrunner~\cite{oei2020testrunner}) is the execution substrate we reuse for
+our same-JVM double-run strategy. NonDex~\cite{gyori2016nondex} reproduces
+implementation-dependent failures by perturbing hash and reflection
+nondeterminism; our T12 strategy invokes it directly. FlakeRake~\cite{
+bell2017flakerake} and Shaker~\cite{silva2017practical} inject sleeps and
+perturb resources to expose timing sensitivity — the family of ideas behind
+our sleep-injection and stress strategies. TDRepro~\cite{chen2024tdrepro}
+specifically reproduces time-dependent failures by first learning timing
+features from a \emph{given failure log} and then searching parameterized
+stress levels to match it; it requires the failing log as input and covers
+only TD. NIODebugger~\cite{shen2024nidebugger} localizes and fixes
+non-idempotent outcomes but assumes the failure has already been observed.
+FlakeRepro~\cite{alghmadi2023flakerepro} targets .NET and combines reruns
+with fault localization, without an LLM component. What distinguishes
+FlakeAgent is category agnosticism combined with cold start: no failure log,
+no stack trace, no category hint — the agent reasons over the test source
+and its own observations only, and covers all four categories with one loop.
+We deliberately compare against a log-free baseline family (Section~\ref{sec:setup})
+so that the comparison is apples-to-apples; TDRepro-style log-based tools are
+inapplicable to the cold-start setting by construction.
+
+\subsection{LLM agents for software engineering}
+
+The agent paradigm — LLM in a loop with tools and observations — has produced
+strong results on repository-level coding (SWE-bench~\cite{jimenez2024swebench}),
+autonomous bug fixing~\cite{zhang2024agentless,zhang2024autocoderover}, and
+debugging~\cite{zhang2024llamadebug,kang2023largelang}. These settings assume
+the failure is reproducible on demand; flaky failures are different, because
+the agent's central problem is \emph{making} the bug happen via
+hypothesis-driven environment manipulation rather than code editing. Closest
+to our work, TDRepro~\cite{chen2024tdrepro} couples an LLM pipeline to the
+failing log to steer its stress search, and LDB~\cite{zhang2024llamadebug}
+debugs by verifying runtime execution step by step — both assume the failure
+has already been observed. We are, to our knowledge, the first to demonstrate
+a closed-loop agent that reproduces failures from cold start and diagnoses
+them with evidence evaluated against developer fixes, at scale, across
+flakiness categories and across 2026-era frontier models. FlakeAgent also
+follows the budgeted-agent design of~\cite{zhang2024agentless}: a hard budget
+of six LLM calls and eight executions per test keeps the amortized cost in
+the cents range (Section~\ref{sec:cost}), a precondition for adoption in
+everyday CI debugging.

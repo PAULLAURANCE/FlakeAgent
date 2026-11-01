@@ -1,0 +1,97 @@
+\section{Introduction}
+
+Flaky tests — tests that pass and fail nondeterministically on the same code
+version — are among the most corrosive reliability problems in modern software
+engineering. Surveys of industrial projects estimate that roughly one test in
+ten exhibits flakiness~\cite{luo2014empirical,lam2019understanding}, and flaky
+failures are consistently reported as a leading cause of developer distrust in
+CI and of delayed releases~\cite{google2023flaky,seka2023survey}. A developer
+can fix a flaky test only after two things happen: a failure is
+\emph{reproduced} (ideally locally, in an environment the developer controls),
+and the \emph{root cause} is understood (which state, order, timing condition,
+or nondeterministic behavior produces it). Both steps are expensive.
+Flakiness manifests probabilistically, under conditions that are hard to guess
+(order of test execution, wall-clock timing, machine load, locale, hash
+ordering), and a developer who clicks ``re-run'' in CI and sees green is left
+with nothing to debug.
+
+The research community has built increasingly capable tools for this problem,
+but each addresses a slice of it. Classification tools predict
+\emph{whether} a test is flaky~\cite{king2023bayesian,pinto2020understanding,
+kim2024large}. Specialized reproducers target a single flakiness
+category: order-dependent failures~\cite{lam2019idflakies,parry2022survey},
+timing-dependent failures~\cite{chen2024tdrepro}, or non-idempotent
+outcomes~\cite{shen2024nidebugger}, and typically require the failing
+test's log or stack trace as input to imitate~\cite{chen2024tdrepro}. The
+newest generation of LLM-based debugging assistants~\cite{lewis2020retrieval,
+zhang2024llamadebug} is designed for deterministic bugs, where the failure is
+reproducible on demand; flaky failures break this assumption because the
+assistant may never observe the bug it is asked to fix.
+
+In this paper we argue that flaky-test reproduction is a natural fit for
+\emph{closed-loop LLM agents} — systems that propose an action, execute it in
+the real environment, observe the result, and adapt — and we introduce
+\textbf{FlakeAgent}, the first category-agnostic agent for reproducing and
+diagnosing flaky test failures from cold start. FlakeAgent receives only a
+test identifier and access to the project source; it receives
+\emph{no} failure log, no stack trace, and no category hint. In a bounded
+loop (at most six LLM calls and eight local executions per test, under a
+45-minute wall-clock cap), it iteratively forms a causal hypothesis about the
+flakiness mechanism, selects one of twelve executable strategies
+(order permutations, same-JVM double runs, sleep injection, CPU/IO stress,
+heap limits, environment manipulation, parallel execution, network blocking,
+and NonDex-based nondeterminism injection), executes it locally, and observes
+the structured result (exit status, failed tests, assertion messages, stack
+traces, durations). When a failure is reproduced, FlakeAgent switches to a
+diagnosis step that emits (i) a flakiness category
+(\emph{order-dependent, time-dependent, non-idempotent-outcome,
+implementation-dependent}), (ii) a root-cause hypothesis in natural language,
+and (iii) file--line \emph{evidence} with code snippets drawn from the source
+and the observed failure — evidence we evaluate against developer fix commits.
+
+We evaluate FlakeAgent on a benchmark drawn from
+\emph{ReproFlake}~\cite{zhang2026reproflake}, a recent dataset of 1{,}115
+machine-reproducible flaky tests in real Java projects, shipped with the
+official reproduction mechanisms for each category and with the developer fix
+commit for each test. We select 116 tests, balancing all four categories (30
+order-dependent, 36 time-dependent, 25 non-idempotent-outcome, and 25
+implementation-dependent tests across 46 project snapshots); a validation gate
+confirms the dataset's official mechanism reproduces each test in our
+environment, yielding 92 gate-passed tests (20 order-dependent, 31
+time-dependent, 25 non-idempotent-outcome, 16 implementation-dependent) on
+which all methods are evaluated. We compare FlakeAgent against five baselines sharing the
+same execution budget: naive rerun, uniform random strategy sampling, random
+suite-order shuffling, a deterministic sleep-injection scan, and a single-shot
+LLM prompt without a loop. We additionally ablate the agent's reflection loop,
+the breadth of its strategy space, and its source-code grounding, and we
+report the first cross-model comparison of flaky-test reproduction across six
+2026-era frontier LLMs accessed via vendor APIs.
+
+Our results show that FlakeAgent reproduces 47.8\% of benchmark failures
+within budget (20.0\% of order-dependent, 12.9\% of time-dependent,
+100.0\% of non-idempotent, 68.8\% of implementation-dependent),
+outperforming the strongest non-agent baseline by 20.6 percentage points,
+and that its evidence-grounded diagnoses cite file--line pairs touched by the
+developer fix in 36.4\% of cases. Ablations attribute a large share of
+the gain to the closed loop rather than to the underlying model alone, and
+the cost analysis shows reproduction at a median of 0.006 USD per test —
+two orders of magnitude cheaper than the brute-force rerun budget the same
+tests required in the benchmark's own construction.
+
+This paper makes the following contributions:
+\begin{itemize}
+\item \textbf{FlakeAgent}, the first category-agnostic closed-loop LLM agent
+for flaky-test reproduction and evidence-grounded root-cause diagnosis from
+cold start (no failure logs), with a bounded call/execution/wall-clock budget;
+\item \textbf{Twelve executable reproduction strategies} spanning order
+manipulation, timing perturbation, resource pressure, environment
+manipulation, and nondeterminism injection, implemented executor-side so that
+the model only selects parameters;
+\item \textbf{A benchmark and evaluation methodology} built on ReproFlake —
+116 selected tests (92 gate-passed) across four flakiness categories with a
+reproducibility gate, five shared-budget baselines, four ablations, and a
+six-model comparison on 2026-era frontier LLMs;
+\item \textbf{Evidence-grounded diagnosis evaluation}: category accuracy and
+file--line evidence checked against developer fix commits, including a
+cost breakdown of agentic reproduction per test and per failure.
+\end{itemize}

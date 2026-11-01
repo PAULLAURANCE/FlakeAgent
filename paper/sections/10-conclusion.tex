@@ -1,0 +1,9 @@
+\section{Conclusion}
+
+We presented FlakeAgent, a closed-loop LLM agent that reproduces flaky test
+failures from cold start and diagnoses their root cause with evidence grounded
+in the failing execution and code. On a 92-test gate-passed benchmark, it
+reproduces 47.8\% of failures within 6 LLM calls, 8 executions, and 45
+minutes, outperforming every shared-budget baseline and a single-shot LLM
+pipeline; ablations show the reflection loop, strategy space, and source
+grounding each earn their cost.

@@ -1,0 +1,94 @@
+\documentclass[acmsmall,review,anonymous,screen]{acmart}
+%% FlakeAgent: An LLM-Agent Approach to Reproducing and Diagnosing Flaky Test Failures
+%% ACM ESEC/FSE 2027 research track, double-anonymous submission.
+%% 18 pages body + 4 pages references.
+
+\settopmatter{printacmref=false} % double-blind
+\renewcommand\footnotetextcopyrightpermission[1]{}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{microtype}
+\microtypesetup{expansion=false} % avoid pdfTeX font-expansion errors (bitmap fonts in figures/text)
+\usepackage[english]{babel}
+
+\definecolor{flkblue}{RGB}{31,119,180}
+\definecolor{flkorange}{RGB}{255,127,14}
+\definecolor{flkgreen}{RGB}{44,160,44}
+\definecolor{flkred}{RGB}{214,39,40}
+\definecolor{flkpurple}{RGB}{148,103,189}
+
+\lstdefinestyle{javasmall}{
+  language=Java, basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{flkblue}\bfseries, commentstyle=\color{gray},
+  stringstyle=\color{flkgreen}, numbers=none, breaklines=true,
+  showstringspaces=false, frame=single, aboveskip=4pt, belowskip=4pt}
+\lstdefinestyle{jsonsmall}{
+  basicstyle=\ttfamily\footnotesize, breaklines=true, frame=single,
+  showstringspaces=false, aboveskip=4pt, belowskip=4pt}
+
+\setcopyright{none}
+\newcommand{\TODO}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+\acmConference[ESEC/FSE 2027]{ACM International Conference on the Foundations of
+Software Engineering}{June 2027}{Atlanta, GA, USA}
+\acmYear{2027}
+
+\begin{document}
+
+\title{FlakeAgent: An LLM-Agent Approach to Reproducing and Diagnosing Flaky Test Failures}
+
+\begin{abstract}
+Flaky tests are a persistent threat to the reliability of continuous integration:
+they pass and fail on the same code, and developers can only fix them once they have
+witnessed a failure and understood why it happened. Reproduction remains the bottleneck
+— developer-observed failures often carry no failure log, and prior automated
+reproducers are either category-specific (order-dependent only, timing only) or
+require a failure log to imitate. This paper presents FlakeAgent, a category-agnostic
+LLM agent that reproduces flaky test failures from cold start — given only a test
+identifier and its source code — and then diagnoses the root cause with
+evidence grounded in the failing stack trace and code. The agent runs a bounded
+plan--execute--observe loop (at most six LLM calls and eight executions per test)
+over twelve executable strategies spanning order manipulation, timing perturbation,
+resource pressure, environment manipulation, and nondeterminism injection. It stops
+when a failure is reproduced and emits a category label, a root-cause hypothesis,
+and file--line evidence, which we evaluate against developer fix commits.
+On a 92-test gate-passed benchmark drawn from the ReproFlake dataset
+(20 order-dependent, 31 time-dependent, 25 non-idempotent, 16 implementation-dependent),
+FlakeAgent reproduces 47.8\% of failures within budget versus 27.2\% for the
+best non-agent baseline, achieves 86.4\% top-1 category accuracy, and grounds
+36.4\% of its diagnoses in developer fix commits, at a median cost of
+0.006 USD per test. Ablations show that the reflection loop, the breadth of the
+strategy space, and source-code grounding each contribute measurably to reproduction.
+We release the tool, the benchmark manifest, and all execution logs as a
+reusable artifact.
+\end{abstract}
+
+\maketitle
+
+\input{sections/01-intro}
+\input{sections/02-background}
+\input{sections/03-related}
+\input{sections/04-approach}
+\input{sections/05-setup}
+\input{sections/06-results}
+\input{sections/07-cases}
+\input{sections/08-discussion}
+\input{sections/09-threats}
+\input{sections/10-conclusion}
+
+\section{Data Availability}
+The artifact, including the FlakeAgent implementation, the benchmark manifest
+(116 selected tests, 92 gate-passed, 46 project snapshots, fix commits), raw execution logs, LLM cost logs,
+and the scripts that produce every figure and table in this paper, is publicly
+available at \url{https://zenodo.org/...} (anonymized).
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+\end{document}

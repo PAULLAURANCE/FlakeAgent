@@ -1,0 +1,195 @@
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Benchmark construction}
+
+\paragraph{Source dataset.} We build on ReproFlake~\cite{zhang2026reproflake},
+a dataset of 1{,}115 machine-reproducible flaky tests (819 ID, 126 OD, 125
+NIO, 36 TD, 9 uncategorized) from 63 JIRA issues and 1{,}052 commits of the
+iDoFT dataset~\cite{parry2022survey}. Each test ships a project snapshot at
+the flaky commit, the developer fix as a patch (\texttt{Fixed.patch}), a
+Maven dependency cache, and the \emph{official reproduction mechanism} of its
+category: manual sleep injection at a timing-sensitive line (TD, shipped as
+	a \texttt{FlakyCodeChange.patch} reproduction patch), polluter--victim
+	ordered runs (OD), the
+iDFlakies same-JVM double-run plugin (NIO), and NonDex seed perturbation (ID).
+The fix patch is our diagnosis ground truth; the official mechanisms validate
+our subset and seed the warm-start ablation.
+
+\paragraph{Subset selection.} We select 116 tests: \emph{all} 36 TD tests
+(the scarcest, most timing-sensitive category), plus 30 OD, 25 NIO, and 25 ID
+tests chosen by a greedy, download-efficient procedure with per-zip caps. The
+subset deliberately balances categories (rather than mirroring ReproFlake's
+ID-dominated distribution) to make per-category analysis meaningful. The
+manifest records, per test: category, project, module, Java version, polluter
+(OD), NonDex seed and rounds (ID), flaky commit, and fix commit, spanning 46
+project snapshots (17.4\,GB).
+
+\paragraph{Validation gate.} Every test must first \emph{pass} a gate that
+runs its category's official mechanism in our environment and observes the
+target test failing: TD by applying the dataset's sleep-injection patch (\texttt{FlakyCodeChange.patch}), recompiling the touched module when the
+injection sits in production code, then running up to three times; OD up to 10
+polluter--victim runs in the recorded order via the dataset's customized
+Surefire build (\texttt{runOrder=testorder}, shipped in each project's
+dependency cache); NIO up to 10 same-JVM double
+runs via the iDFlakies testrunner plugin with the dataset's detector
+configuration; ID one NonDex run with the dataset's recorded seed (the
+mechanism is deterministic given the seed, so one run suffices). A test
+fails the gate if the mechanism never reproduces within its cap, or if the
+project fails to build offline (45-minute cap). Gate results are reported in
+Table~\ref{tab:benchmark}; the gate rate is the fraction of \emph{built} tests
+whose official mechanism reproduced the failure (build failures are reported
+separately in the \emph{Built} column). Eighteen tests across seven snapshots
+fail to build offline and are excluded: ten OD tests in a single
+\texttt{wildfly-naming} snapshot (a dependency missing from the shipped cache),
+five TD tests in Hadoop/HDFS/YARN snapshots (the Hadoop build requires a
+\texttt{protoc} binary that is absent from the offline environment), and three
+ID tests in a \texttt{fastjson2} snapshot (a test-compilation error under the
+recorded JDK). The gate dataset is the ground-truth file each of our
+reproduction mechanisms is checked against.
+
+\begin{table}[t]
+\caption{Benchmark composition and validation-gate results. Gate runs use
+each category's official ReproFlake mechanism (TD: sleep-injection patch;
+OD/NIO: 10 ordered/double runs; ID: one NonDex run with the dataset's seed).}
+\label{tab:benchmark}
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Category} & \textbf{Selected} & \textbf{Projects} & \textbf{Built} &
+\textbf{Gate passed} & \textbf{Gate rate}\\
+\midrule
+Order-dependent (OD) & 30 & 6 & 20 & 20 & 100.0\%\\
+Time-dependent (TD) & 36 & 26 & 31 & 31 & 100.0\%\\
+Non-idempotent (NIO) & 25 & 5 & 25 & 25 & 100.0\%\\
+Implementation-dep.\ (ID) & 25 & 9 & 22 & 16 & 72.7\%\\
+\midrule
+\textbf{Total} & 116 & 46 & 98 & 92 & 93.9\%\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Models}
+
+Table~\ref{tab:models} lists the six models. All are 2026 releases (the
+oldest, DeepSeek-V4.1, was released after January 2026), and all are accessed
+exclusively through vendor APIs — no model is deployed locally. Every LLM
+call in every experiment uses temperature $0.2$ and at most 2{,}000 output
+tokens, except the two DeepSeek models, which get 4{,}000: both are reasoning
+models whose visible reply shares the output budget with hidden reasoning
+tokens, and at 2{,}000 tokens the reply came back empty in early pilots. The
+reasoning-effort knob, where offered, is set to the lowest level for the same
+reason. DeepSeek-V4.1-Flash is the main model (full 92-test
+gate-passed set, all ablations, variance); the other five run on a stratified 50-test
+subset that preserves the category proportions of the benchmark. DeepSeek is
+called directly at its off-peak list prices; OpenAI, Gemini, and Grok models
+are called through a commercial OpenAI-compatible API relay, whose per-model
+prices (which we use for cost accounting) are the prices in the table; for
+Grok-4.7 we report the relay's \emph{stable}-channel price.
+
+\begin{table}[t]
+\caption{The six 2026-era models used, with the prices we paid (USD per 1M
+tokens; relay prices for OpenAI/Gemini/Grok, off-peak list for DeepSeek).
+Access is API-only; all experiments fix temperature $0.2$.}
+\label{tab:models}
+\small
+\begin{tabular}{@{}lllrrl@{}}
+\toprule
+\textbf{Key} & \textbf{Model} & \textbf{Provider} & \textbf{In \$} &
+\textbf{Out \$} & \textbf{Role}\\
+\midrule
+ds-flash & DeepSeek-V4.1-Flash & DeepSeek & 0.15 & 0.60 & main\\
+ds-pro & DeepSeek-V4-Pro & DeepSeek & 0.66 & 1.98 & 50-test subset\\
+gemini38 & Gemini-3.8-Flash & Google & 0.11 & 0.56 & 50-test subset\\
+grok47 & Grok-4.7 & xAI & 0.22 & 0.66 & 50-test subset\\
+sol & GPT-5.6 & OpenAI & 0.40 & 2.00 & 50-test subset\\
+astra & GPT-6-Astra & OpenAI & 1.00 & 5.00 & 50-test subset\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Baselines}
+
+All methods — FlakeAgent and the five baselines — run on the same gate-passed
+tests, in the same sandboxes, with the same 8-execution budget
+(Table~\ref{tab:baselines}); the agent additionally gets up to 6 LLM calls.
+The baselines are deliberately \emph{log-free}, matching the cold-start
+setting: log-based reproducers such as TDRepro~\cite{chen2024tdrepro} cannot
+run at all without the failing log, so they are inapplicable to this setting
+(we revisit this in Section~\ref{sec:discussion}).
+
+\begin{table}[t]
+\caption{The five baselines. All share the 8-execution budget with
+FlakeAgent; SingleShotLLM additionally gets one LLM call.}
+\label{tab:baselines}
+\small
+\begin{tabular}{@{}llp{7.6cm}@{}}
+\toprule
+\textbf{Baseline} & \textbf{Executions} & \textbf{Description}\\
+\midrule
+NaiveRerun & 8 & isolated reruns of the target test (T1), stop on failure\\
+RandomStrategy & 8 & uniform random (strategy, params) over the same sanitized space, stop on failure\\
+OrderShuffle & 8 & full module suite in random order (T4), fresh seeds, stop on failure\\
+SleepScan & 8 & deterministic sleep scan: T6 with 100/500/2000/5000\,ms $\times$2 into the first test-class method\\
+SingleShotLLM & 8 & one LLM call proposes a single strategy; it is executed up to 8 times with fixed parameters (no loop, no observations fed back)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{NaiveRerun} extends the agent's Step-0 reruns to the full budget;
+it represents ``click re-run until it fails.'' \textbf{RandomStrategy}
+isolates the value of \emph{selecting} strategies: it samples uniformly from
+the identical strategy space with parameters drawn from the same sanitized
+ranges, without any reasoning. \textbf{OrderShuffle} is the standard
+iDFlakies-style whole-suite randomization applied to our budget.
+\textbf{SleepScan} is a deterministic FlakeRake-style timing perturbation
+scan. \textbf{SingleShotLLM} is the no-loop LLM pipeline: one planning call
+(identical prompt, no prior observations), then the proposed strategy is
+executed up to 8 times with fixed parameters — it measures how much of the
+agent's value comes from the closed loop versus the model's prior alone.
+RandomStrategy and OrderShuffle are seeded and repeated 3 times over a
+30-test variance subset; FlakeAgent likewise runs 3 seeds on that subset.
+
+\subsection{FlakeAgent configurations and ablations}
+
+The main configuration is Section~\ref{sec:approach} verbatim: 3 Step-0
+reruns, $\le$5 planning rounds, 1 diagnosis call on success, $\le$8
+executions, 45-minute cap. Four ablations isolate design elements:
+\textbf{(i) $-reflection$} — the loop is cut to a single planning round
+after Step 0 (at most 2 LLM calls), i.e. no observation-feedback iteration;
+\textbf{(ii) $-space4$} — the strategy space shrinks to
+\{T1, T2, T5, T6\}, removing order permutation/randomization (T3/T4), stress
+and environment strategies (T7--T9), parallelism (T10), network blocking
+(T11), and NonDex (T12); \textbf{(iii) $-source$} — the test source excerpt
+is withheld from every planning context (diagnosis still sees source);
+\textbf{(iv) $Warm$} — the agent is seeded with the failure observation
+produced by one invocation of the category's official mechanism and proceeds
+directly to diagnosis, isolating the reproduction loop and approximating the
+operating point of log-based tools.
+
+\subsection{Metrics}
+
+\textbf{Reproduction}: a test is \emph{reproduced} if the target test fails
+at least once within budget; we report overall and per-category rates, plus
+\emph{reliability} (mean $\pm$ std over seeds) on the variance subset.
+\textbf{ATR} counts executions until first failure (medians and ECDFs).
+\textbf{Strategy attribution} aggregates each reproduction's triggering
+strategy into a category $\times$ strategy heat map. \textbf{Diagnosis} (only
+for reproduced tests): top-1 \emph{category accuracy} (exact, plus a coarse
+order-vs-non-order bin), \emph{evidence precision}, and \emph{fix-hit}
+(diagnoses citing $\ge$1 line the developer changed). \textbf{Cost}: tokens
+and USD per test and per reproduction at list prices, plus wall-clock time,
+from provider-reported usage metadata, never estimates.
+
+\subsection{Environment}
+
+Experiments run on a Linux machine (WSL2, Ubuntu 22.04; 8 cores, 11\,GB RAM
+allocated) with Maven 3.9.16 and JDK 8/11/17 installed; each project uses its
+recorded Java version and builds offline against the dependency cache shipped
+with its dataset zip. All 46 zips (17.4\,GB) are pre-extracted; per-zip
+preparation (offline build) is cached. The LLM client reaches DeepSeek
+directly and the other providers through a local HTTP proxy; no model runs
+locally. Every execution, baseline or agent, goes through the same
+observation probe, and every LLM call is logged with provider-reported token
+usage — the numbers in Section~\ref{sec:results} are computed from these logs
+by the scripts in our artifact, not by hand.
